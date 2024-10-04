@@ -16,12 +16,17 @@ logging.basicConfig(format='[%(asctime)s] %(levelname)s - %(message)s')
 
 
 class FujiXWeeklyScraper:
-    def __init__(self, snippets=None):
+    def __init__(self, snippets=None, keyword_llm_eval="gpt-4o-mini"):
+        """
+        Scrape the website and prepare data for search.
+        :param snippets: Scraped snippets can be passed if scraping has done already and just modifications are needed.
+        :param keyword_llm_eval: Which OAI LLM to use for keyword retrieval.
+        """
         self.url_ = "https://fujixweekly.com/sitemap-1.xml"
         self.snippets = snippets if snippets else []
         self.stopwords = ["Share this", "Nobody pays", "Help Fuji X", "Click to share", "*Related*", "!["]
         self.oai_cli = OpenAI()
-        self.kwd_llm = "gpt-4o-mini"
+        self.kwd_llm = keyword_llm_eval
 
     def get_recipe_urls(self):
         recipe_urls = []
