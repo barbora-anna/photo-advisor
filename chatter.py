@@ -1,4 +1,5 @@
 import os
+import re
 
 import numpy as np
 from openai import OpenAI
@@ -50,7 +51,6 @@ class Chatter:
                 known_tits.append(current_title)
             if len(res) == n:
                 break
-        # top_docs = self.get_ft().get_top_n(documents=self.snippets, query=self._prep_for_ft(query), n=n)
         return res
 
     def get_answer(self, sys_prompt, user_prompt):
@@ -61,13 +61,16 @@ class Chatter:
                     {"role": "user", "content": user_prompt}])
         return r.choices[0].message.content
 
+    def reg_matches(self, cam_type, sim_tit):
+        return bool(re.match(fr".*{cam_type}.*", sim_tit))
+
     def search_recipe(self, query, n_of_ft_snippets, n_of_ss_snippets, camera: list):
         ss = self.semantic_search(query, n_of_ss_snippets)
         ft = self.fulltext_search(query, n_of_ft_snippets)
         titles = []
         for meta in ss + ft:
             current_title = self.snippets[meta["corpus_id"]][0]
-            if any(c in current_title for c in camera):
+            if any(self.reg_matches(c, current_title) for c in camera):
                 titles.append(current_title)
 
         for tit in titles:
@@ -91,4 +94,6 @@ ctr.search_recipe("Vivid and vibrant colours. A bit of constrast, versatile usag
                   10,
                   ["X-T1", "X-Trans II"])
 
-
+# TODO: same found indices
+# TODO: camera/sensor type -- DONE
+# TODO: implemet retrieval threshold
