@@ -77,7 +77,8 @@ class FujiXWeeklyScraper:
                     "sim_name": self._get_sim_title(soup),
                     "sim_settings": self._get_sim_settings(soup),
                     "sim_desc": sim_desc,
-                    "sim_keywords": self.get_sim_keywords(sim_desc)
+                    "sim_keywords": self.get_sim_keywords(sim_desc),
+                    "sim_url": url
                 })
                 counter += 1
                 if counter % 5 == 0:
@@ -105,10 +106,10 @@ class FujiXWeeklyScraper:
         r = self.oai_cli.chat.completions.create(
             model=self.kwd_llm,
             messages=[
-                {"role": "system", "content": NLPOps.prompts["kwd"]["sys"]},
-                {"role": "user", "content": NLPOps.prompts["kwd"]["shot_q"]},
-                {"role": "assistant", "content": NLPOps.prompts["kwd"]["shot_a"]},
-                {"role": "user", "content": sim_desc},])
+                {"role": "system", "content": NLPOps.prompts["kwd_generation"]["sys"]},
+                {"role": "user", "content": NLPOps.prompts["kwd_generation"]["shot_q"]},
+                {"role": "assistant", "content": NLPOps.prompts["kwd_generation"]["shot_a"]},
+                {"role": "user", "content": sim_desc}])
         log.debug(sim_desc)
         log.debug(f"KWDS: {r.choices[0].message.content}")
         return r.choices[0].message.content
@@ -116,7 +117,7 @@ class FujiXWeeklyScraper:
 
 if __name__ == "__main__":
     args = DataOps.parse_my_args([["--target-dir", str, True],
-                              ["--debug", bool, False]])
+                                  ["--debug", bool, False]])
 
     log.setLevel("DEBUG") if args.debug else log.setLevel("INFO")
     if not os.path.isdir(args.target_dir):
@@ -132,4 +133,3 @@ if __name__ == "__main__":
 
     DataOps.export_npy(fws.get_embeddings("multilingual-e5-base"), os.path.join(args.target_dir, "embeddings.npy"))
     log.debug("Finished!")
-
