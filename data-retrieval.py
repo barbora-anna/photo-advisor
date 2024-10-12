@@ -8,7 +8,7 @@ from markdownify import markdownify as md
 from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 
-from ops import DataOps, NLPOps
+import ops
 
 log = logging.getLogger("FujiXWeeklyScraper")
 HTTPConnection.debuglevel = 0
@@ -20,13 +20,14 @@ class FujiXWeeklyScraper:
         """
         Scrape the website and prepare data for search.
         :param snippets: Scraped snippets can be passed if scraping has done already and just modifications are needed.
-        :param keyword_llm_eval: Which OAI LLM to use for keyword retrieval.
+        :param keyword_llm_eval: This model will create keywords for fulltext search
         """
         self.url_ = "https://fujixweekly.com/sitemap-1.xml"
         self.snippets = snippets if snippets else []
         self.stopwords = ["Share this", "Nobody pays", "Help Fuji X", "Click to share", "*Related*", "!["]
         self.oai_cli = OpenAI()
         self.kwd_llm = keyword_llm_eval
+        self.nlp = ops.load_nlp("en_core_web_sm")
 
     def get_recipe_urls(self):
         recipe_urls = []
@@ -62,7 +63,7 @@ class FujiXWeeklyScraper:
         return "\n".join(settings)
 
     def contains_verb(self, text):
-        for token in NLPOps.nlp(text):
+        for token in self.nlp(text):
             if token.pos_ == "VERB":
                 return True
         return False
@@ -106,18 +107,18 @@ class FujiXWeeklyScraper:
         r = self.oai_cli.chat.completions.create(
             model=self.kwd_llm,
             messages=[
-                {"role": "system", "content": NLPOps.prompts["kwd_generation"]["sys"]},
-                {"role": "user", "content": NLPOps.prompts["kwd_generation"]["shot_q"]},
-                {"role": "assistant", "content": NLPOps.prompts["kwd_generation"]["shot_a"]},
+                {"role": "system", "content": ops.prompts["kwd_generation"]["sys"]},
+                {"role": "user", "content": ops.prompts["kwd_generation"]["shot_q"]},
+                {"role": "assistant", "content": ops.prompts["kwd_generation"]["shot_a"]},
                 {"role": "user", "content": sim_desc}])
         log.debug(sim_desc)
-        log.debug(f"KWDS: {r.choices[0].message.content}")
+        log.debug(f"generated kwds: {r.choices[0].message.content}")
         return r.choices[0].message.content
 
 
 if __name__ == "__main__":
-    args = DataOps.parse_my_args([["--target-dir", str, True],
-                                  ["--debug", bool, False]])
+    args = ops.parse_my_args([["--target-dir", str, True],
+                              ["--debug", bool, False]])
 
     log.setLevel("DEBUG") if args.debug else log.setLevel("INFO")
     if not os.path.isdir(args.target_dir):
@@ -129,7 +130,7 @@ if __name__ == "__main__":
              (fws.get_settings, "settings"),
              (fws.prep_data, "snippets")]
     for fun, filename in to_do:
-        DataOps.export_json(fun(), os.path.join(args.target_dir, f"{filename}.json"))
+        ops.export_json(fun(), os.path.join(args.target_dir, f"{filename}.json"))
 
-    DataOps.export_npy(fws.get_embeddings("multilingual-e5-base"), os.path.join(args.target_dir, "embeddings.npy"))
+    ops.export_npy(fws.get_embeddings("multilingual-e5-base"), os.path.join(args.target_dir, "embeddings.npy"))
     log.debug("Finished!")
