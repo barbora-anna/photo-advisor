@@ -6,6 +6,7 @@ from openai import OpenAI
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 from sentence_transformers import util
+from pprint import pprint
 
 import ops
 
@@ -65,9 +66,14 @@ class Chatter:
     def _reg_matches(self, cam_type, sim_tit):
         return bool(re.match(fr".*{cam_type}.*", sim_tit))
 
+    def _get_n_of_semantic_chunks(self, ft_res, default_ss_chunks=10):
+        if not ft_res:
+            return default_ss_chunks
+        return len(ft_res)
+
     def search_recipe(self, query, camera: list):
         ft = self.fulltext_search(query)
-        ss = self.semantic_search(query, len(ft))
+        ss = self.semantic_search(query, self._get_n_of_semantic_chunks(ft))
         titles = []
         for meta in ss + ft:
             current_title = self.snippets[meta["corpus_id"]][0]
@@ -87,16 +93,15 @@ class Chatter:
         settings = []
         for r in recipes_res:
             settings.append(r.get("settings"))
-        return "\n//\n".join(settings)
+        return "\n*************\n".join(settings)
 
 
     def get_recommendation(self, query, camera: list):
         recipes = self.search_recipe(query, camera)
-        user_prompt = f"USER: {query} \n//\n RECIPE EXAMPLES {self._format_settings_for_prompt(recipes)}"
+        user_prompt = f"USER DESCRIPTION: {query} /// RECIPE EXAMPLES: {self._format_settings_for_prompt(recipes)}"
         msgs = [
-            {"role": "system", "content": ops.prompts["recipe_creation"]},
-            {"role": "user", "content": [{"type": "text", "text": user_prompt}]}
-        ]
+            {"role": "system", "content": ops.prompts["recipe_creation"]["sys"]},
+            {"role": "user", "content": user_prompt}]
 
         r = self.cli.chat.completions.create(model="gpt-4o-mini", messages=msgs)
         return r.choices[0].message.content
@@ -117,7 +122,7 @@ if __name__ == "__main__":
     # ctr.search_recipe("I would like to take pictures of architecture, streets of cities. I sought for vivid colors and bright lights.",
     #                   ["X-T1", "X-Trans II"])
 
-    ctr.get_recommendation("I need something for misty mornings. I like when white is white without tint. I also want vibrant and lively colours.", ["X-T30", "X-Trans IV"])
+    print(ctr.get_recommendation("I need something for misty mornings. I like when white is white without tint. I also want vibrant and lively colours.", ["X-T30", "X-Trans IV"]))
 
     # while True:
     #     inp = input("What are you looking for?")
