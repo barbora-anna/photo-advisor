@@ -1,8 +1,6 @@
 import json
 import os
 
-import chromadb
-from chromadb.utils import embedding_functions
 import numpy as np
 import argparse
 

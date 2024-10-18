@@ -3,7 +3,9 @@ import os
 from http.client import HTTPConnection
 from pprint import pprint
 
+import chromadb
 import requests
+from chromadb.utils import embedding_functions
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
 from openai import OpenAI
@@ -122,9 +124,6 @@ if __name__ == "__main__":
 
     log.setLevel("DEBUG") if args.debug else log.setLevel("INFO")
 
-    if not os.path.isdir(args.target_dir):
-        os.makedirs(args.target_dir)
-
     fws = FujiXWeeklyScraper()
     to_do = [(fws.get_snippets, "simulations"),
              (fws.get_settings, "settings"),
@@ -133,4 +132,18 @@ if __name__ == "__main__":
         dto.export_json(fun(), os.path.join(args.target_dir, f"{filename}.json"))
 
     dto.export_npy(fws.get_embeddings("multilingual-e5-base"), os.path.join(args.target_dir, "embeddings.npy"))
+
+    if args.target_dir == "database":
+        chroma_cli = chromadb.Client()
+        sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+            model_name="multilingual-e5-base")
+
+        collection = chroma_cli.get_or_create_collection(name="recipe-data", embedding_function=sentence_transformer_ef)
+        collection.add()
+
+
+    if not os.path.isdir(args.target_dir):
+        os.makedirs(args.target_dir)
+
+
     log.debug("Finished!")
