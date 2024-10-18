@@ -1,35 +1,38 @@
 import json
+import os
+
+import chromadb
+from chromadb.utils import embedding_functions
 import numpy as np
 import argparse
-import spacy
 
 import yaml
 
 
-def export_json(data, filename):
+def export_json(data: list | dict, filename: str | os.PathLike) -> None:
     with open(filename, "w+", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 
-def load_json(filename):
+def load_json(filename: str | os.PathLike) -> dict | list:
     with open(filename, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
-def export_npy(data, filename):
+def export_npy(data, filename: str | os.PathLike) -> None:
     with open(filename, "wb+") as f:
         np.save(f, data)
 
 
-def load_npy(filename):
+def load_npy(filename) -> None:
     with open(filename, "rb") as f:
-        return np.load(filename)
+        return np.load(f)
 
 
-def parse_my_args(arg_template):
+def parse_my_args(arg_template: list[list[str | type | bool]]):
     """
     Parse script args.
-    :param arg_template: List of lists of arg info: [[arg_name: str, arg_type: type, arg_required: bool], [...], ...]
+    :param arg_template: List of lists of arg info: [[arg_name, arg_type, arg_required], [...], ...]
     :return: Dict of parsed args
     """
     parser = argparse.ArgumentParser()
@@ -38,16 +41,6 @@ def parse_my_args(arg_template):
     return parser.parse_args()
 
 
-def load_yaml(filename):
+def load_yaml(filename) -> list | dict:
     with open(filename, "r") as f:
         return yaml.safe_load(f)
-
-
-def load_nlp(spacy_model):
-    try:
-        return spacy.load(spacy_model)
-    except OSError as e:
-        raise Exception(f"Unable to load spaCy model:\n{e}\nTo download: https://spacy.io/usage/models")
-
-
-prompts = load_yaml("prompts.yaml")
