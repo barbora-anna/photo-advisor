@@ -75,7 +75,7 @@ class FujiXWeeklyScraper:
         if not self.snippets:
             counter = 0
             for url in self.get_recipe_urls():
-                soup: BeautifulSoup = self.get_soup(url)
+                soup = self.get_soup(url)
                 sim_desc: str = self._get_sim_description(soup)
                 self.snippets.append({
                     "sim_name": self._get_sim_title(soup),
@@ -117,9 +117,19 @@ class FujiXWeeklyScraper:
         log.debug(f"generated kwds: {r.choices[0].message.content}")
         return r.choices[0].message.content
 
+    def get_photo_description(self, photo_url):
+        r = self.oai_cli.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "user", "content": [
+                    {"type": "text", "text": nlo.prompts["photo_description"]["sys"]},
+                    {"type": "image_url", "image_url": {"url": photo_url}}]
+                 }])
+
+    # TODO:
 
 if __name__ == "__main__":
-    args = dto.parse_my_args([["--target-dir", str, True],
+    args = dto.parse_my_args([["--target-dir", str, False],
                               ["--debug", bool, False]])
 
     log.setLevel("DEBUG") if args.debug else log.setLevel("INFO")
@@ -131,15 +141,15 @@ if __name__ == "__main__":
     for fun, filename in to_do:
         dto.export_json(fun(), os.path.join(args.target_dir, f"{filename}.json"))
 
-    dto.export_npy(fws.get_embeddings("multilingual-e5-base"), os.path.join(args.target_dir, "embeddings.npy"))
-
-    if args.target_dir == "database":
-        chroma_cli = chromadb.Client()
-        sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="multilingual-e5-base")
-
-        collection = chroma_cli.get_or_create_collection(name="recipe-data", embedding_function=sentence_transformer_ef)
-        collection.add()
+    # # dto.export_npy(fws.get_embeddings("multilingual-e5-base"), os.path.join(args.target_dir, "embeddings.npy"))
+    #
+    # if args.target_dir == "database":
+    #     chroma_cli = chromadb.Client()
+    #     sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+    #         model_name="multilingual-e5-base")
+    #
+    #     collection = chroma_cli.get_or_create_collection(name="recipe-data", embedding_function=sentence_transformer_ef)
+    #     collection.add()
 
 
     if not os.path.isdir(args.target_dir):

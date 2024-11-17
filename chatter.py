@@ -160,9 +160,9 @@ if __name__ == "__main__":
 
     ctr = Chatter(oai_model="gpt-4o-mini",
                   embedding_model_dir="multilingual-e5-base",
-                  embeddings=ops.load_npy(os.path.join("data", "embeddings.npy")),
-                  snippets=ops.load_json(os.path.join("data", "snippets.json")),
-                  settings=ops.load_json(os.path.join("data", "settings.json")),
-                  simulations=ops.load_json(os.path.join("data", "simulations.json")))
+                  embeddings=dto.load_npy(os.path.join("data", "embeddings.npy")),
+                  snippets=dto.load_json(os.path.join("data", "snippets.json")),
+                  settings=dto.load_json(os.path.join("data", "settings.json")),
+                  simulations=dto.load_json(os.path.join("data", "simulations.json")))
 
     print(ctr.get_recommendation("I need something for misty mornings. I like when white is white without tint. I also want vibrant and lively colours.", ["X-T30", "X-Trans IV"]))
