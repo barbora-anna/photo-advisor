@@ -1,7 +1,9 @@
+import json
 import logging
 import os
 from http.client import HTTPConnection
-from pprint import pprint
+from pprint import pprint as pp
+from random import sample
 
 import chromadb
 import requests
@@ -20,16 +22,14 @@ logging.basicConfig(format='[%(asctime)s] %(levelname)s - %(message)s')
 
 
 class FujiXWeeklyScraper:
-    def __init__(self, keyword_llm_eval: str = "gpt-4o-mini"):
+    def __init__(self):
         """
         Scrape the website and prepare data for search.
-        :param keyword_llm_eval: OpenAI model name to be used for keyword generation
         """
         self.url_ = "https://fujixweekly.com/sitemap-1.xml"
         self.snippets = []
         self.stopwords = ["Share this", "Nobody pays", "Help Fuji X", "Click to share", "*Related*", "!["]
         self.oai_cli = OpenAI()
-        self.kwd_llm = keyword_llm_eval
         self.nlp = nlo.load_nlp("en_core_web_sm")
 
     def get_recipe_urls(self) -> list[str]:
@@ -76,13 +76,15 @@ class FujiXWeeklyScraper:
             counter = 0
             for url in self.get_recipe_urls():
                 soup = self.get_soup(url)
+
                 sim_desc: str = self._get_sim_description(soup)
                 self.snippets.append({
                     "sim_name": self._get_sim_title(soup),
                     "sim_settings": self._get_sim_settings(soup),
                     "sim_desc": sim_desc,
                     "sim_keywords": self.get_sim_keywords(sim_desc),
-                    "sim_url": url})
+                    "sim_url": url,
+                    "sim_llm_desc": self.get_sim_description(soup)})
                 counter += 1
                 if counter % 5 == 0:
                     log.debug(f"Currently got {counter} recipes.")
@@ -105,9 +107,9 @@ class FujiXWeeklyScraper:
     def get_settings(self) -> dict[str, str]:
         return {d["sim_name"]: d["sim_settings"] for d in self.get_snippets()}
 
-    def get_sim_keywords(self, sim_desc: str) -> str:
+    def get_sim_keywords(self, sim_desc: str, oai_model: str = "gpt-4o-mini") -> str:
         r = self.oai_cli.chat.completions.create(
-            model=self.kwd_llm,
+            model=oai_model,
             messages=[
                 {"role": "system", "content": nlo.prompts["kwd_generation"]["sys"]},
                 {"role": "user", "content": nlo.prompts["kwd_generation"]["shot_q"]},
@@ -117,16 +119,32 @@ class FujiXWeeklyScraper:
         log.debug(f"generated kwds: {r.choices[0].message.content}")
         return r.choices[0].message.content
 
-    def get_photo_description(self, photo_url):
+    def get_llm_img_description(self, photo_urls: list):
+        img_content = [{"type": "text", "text": nlo.prompts["photo_description"]["sys"]}]
+        for url in photo_urls:
+            img_content.append({"type": "image_url",
+                                "image_url": {"url": url}})
         r = self.oai_cli.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "user", "content": [
-                    {"type": "text", "text": nlo.prompts["photo_description"]["sys"]},
-                    {"type": "image_url", "image_url": {"url": photo_url}}]
+                {"role": "user", "content": img_content
                  }])
+        return r.choices[0].message.content
 
-    # TODO:
+    def get_photo_urls(self, soup):
+        imgs = soup.findAll("img", {"data-image-meta": True})
+        imgs_with_iso = [
+            img["data-medium-file"] for img in imgs
+            if "iso" in json.loads(img["data-image-meta"])]
+        return imgs_with_iso
+
+    def get_sim_description(self, soup, limit_pic_examples_to: int | None = 2):
+        img_urls = self.get_photo_urls(soup)
+        if limit_pic_examples_to:
+            img_urls = sample(img_urls, limit_pic_examples_to)
+        description = self.get_llm_img_description(img_urls)
+        return description
+
 
 if __name__ == "__main__":
     args = dto.parse_my_args([["--target-dir", str, False],
@@ -141,6 +159,7 @@ if __name__ == "__main__":
     for fun, filename in to_do:
         dto.export_json(fun(), os.path.join(args.target_dir, f"{filename}.json"))
 
+    # TODO: ...
     # # dto.export_npy(fws.get_embeddings("multilingual-e5-base"), os.path.join(args.target_dir, "embeddings.npy"))
     #
     # if args.target_dir == "database":
